@@ -6,8 +6,10 @@
     <!-- iOS Web App 支援設定 -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="apple-mobile-web-app-title" content="出國待買">
+    <meta name="apple-mobile-web-app-title" content="購物清單">
     <meta name="theme-color" content="#0f172a">
+    <!-- iOS 主畫面圖示設定（支援動態替換為自訂圖片） -->
+    <link rel="apple-touch-icon" sizes="180x180" id="dynamic-apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%236366f1'/%3E%3Cstop offset='100%25' stop-color='%239333ea'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='180' height='180' rx='40' fill='url(%23g)'/%3E%3Ctext x='90' y='112' text-anchor='middle' font-size='78'%3E%F0%9F%9B%8D%EF%B8%8F%3C/text%3E%3C/svg%3E">
     <title>出國待買清單 | 社群購物靈感整合</title>
     
     <!-- Tailwind CSS -->
@@ -352,12 +354,36 @@
 
     <!-- ==================== 清單管理設定 Modal ==================== -->
     <div id="settings-modal" class="fixed inset-0 z-50 hidden bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
-        <div class="bg-slate-900 border border-slate-800 w-full max-w-sm rounded-3xl p-5 shadow-2xl">
+        <div class="bg-slate-900 border border-slate-800 w-full max-w-sm rounded-3xl p-5 shadow-2xl max-h-[88vh] overflow-y-auto">
             <div class="flex items-center justify-between mb-4">
                 <h3 class="text-base font-bold text-white">清單管理</h3>
                 <button onclick="closeSettingsModal()" class="w-8 h-8 rounded-full bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center">
                     <i class="fa-solid fa-xmark"></i>
                 </button>
+            </div>
+
+            <!-- iOS 主畫面圖示自訂區塊 -->
+            <div class="mb-4 p-3.5 bg-slate-800/70 border border-slate-700/80 rounded-2xl">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="text-xs font-semibold text-slate-200 flex items-center gap-1.5">
+                        <i class="fa-brands fa-apple text-indigo-400 text-sm"></i> 主畫面圖示（iOS 書籤）
+                    </span>
+                    <button type="button" onclick="resetCustomAppIcon()" id="reset-app-icon-btn" class="hidden text-[11px] text-amber-400 hover:text-amber-300">
+                        恢復預設
+                    </button>
+                </div>
+                <div class="flex items-center gap-3">
+                    <img id="app-icon-preview" src="" alt="主畫面圖示預覽" class="w-14 h-14 rounded-2xl object-cover border border-slate-600 bg-slate-900 shrink-0">
+                    <div class="flex-1 min-w-0">
+                        <label class="w-full flex items-center justify-center gap-1.5 py-2 px-3 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium rounded-xl cursor-pointer transition">
+                            <i class="fa-solid fa-image"></i> 選擇自訂圖片
+                            <input type="file" accept="image/*" onchange="handleAppIconUpload(event)" class="hidden">
+                        </label>
+                        <p class="text-[10px] text-slate-400 mt-1.5 leading-snug">
+                            更換後請刪除舊桌面捷徑，再重新「加入主畫面」。
+                        </p>
+                    </div>
+                </div>
             </div>
 
             <div class="space-y-3">
@@ -466,6 +492,8 @@
         // ==================== 常數與設定 ====================
         const STORAGE_KEY = 'travel_wishlist_items_v1';
         const CATEGORIES_STORAGE_KEY = 'travel_wishlist_categories_v1';
+        const CUSTOM_ICON_STORAGE_KEY = 'travel_wishlist_custom_icon_v1';
+        const DEFAULT_APP_ICON = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%236366f1'/%3E%3Cstop offset='100%25' stop-color='%239333ea'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='180' height='180' rx='40' fill='url(%23g)'/%3E%3Ctext x='90' y='112' text-anchor='middle' font-size='78'%3E%F0%9F%9B%8D%EF%B8%8F%3C/text%3E%3C/svg%3E";
 
         const COLOR_PALETTE = [
             'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
@@ -543,6 +571,7 @@
 
         // ==================== 初始化 ====================
         document.addEventListener('DOMContentLoaded', () => {
+            loadCustomAppIcon();
             loadCategories();
             loadItems();
             renderCategoryDropdown();
@@ -550,6 +579,66 @@
             bindEvents();
             renderAll();
         });
+
+        function loadCustomAppIcon() {
+            try {
+                const savedIcon = localStorage.getItem(CUSTOM_ICON_STORAGE_KEY);
+                applyAppIcon(savedIcon || DEFAULT_APP_ICON, !!savedIcon);
+            } catch (e) {
+                applyAppIcon(DEFAULT_APP_ICON, false);
+            }
+        }
+
+        function applyAppIcon(dataUrl, isCustom) {
+            const linkEl = document.getElementById('dynamic-apple-touch-icon');
+            const previewEl = document.getElementById('app-icon-preview');
+            const resetBtn = document.getElementById('reset-app-icon-btn');
+
+            if (linkEl) linkEl.href = dataUrl;
+            if (previewEl) previewEl.src = dataUrl;
+            if (resetBtn) resetBtn.classList.toggle('hidden', !isCustom);
+        }
+
+        function handleAppIconUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    const size = 180;
+                    const canvas = document.createElement('canvas');
+                    canvas.width = size;
+                    canvas.height = size;
+                    const ctx = canvas.getContext('2d');
+
+                    // 裁切成置中正方形
+                    const minSide = Math.min(img.width, img.height);
+                    const sx = (img.width - minSide) / 2;
+                    const sy = (img.height - minSide) / 2;
+                    ctx.drawImage(img, sx, sy, minSide, minSide, 0, 0, size, size);
+
+                    const iconDataUrl = canvas.toDataURL('image/png');
+                    try {
+                        localStorage.setItem(CUSTOM_ICON_STORAGE_KEY, iconDataUrl);
+                        applyAppIcon(iconDataUrl, true);
+                        showToast('已更新主畫面圖示，請重新加入主畫面');
+                    } catch (err) {
+                        showToast('儲存圖示失敗，請換一張較小的圖片', 'error');
+                    }
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+            event.target.value = '';
+        }
+
+        function resetCustomAppIcon() {
+            localStorage.removeItem(CUSTOM_ICON_STORAGE_KEY);
+            applyAppIcon(DEFAULT_APP_ICON, false);
+            showToast('已恢復預設主畫面圖示');
+        }
 
         function loadCategories() {
             try {
