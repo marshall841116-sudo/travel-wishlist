@@ -1,0 +1,1296 @@
+<!DOCTYPE html>
+<html lang="zh-Hant" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <!-- iOS Web App 支援設定 -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="出國待買">
+    <meta name="theme-color" content="#0f172a">
+    <title>出國待買清單 | 社群購物靈感整合</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- Google Fonts: Inter & Noto Sans TC -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'Noto Sans TC', 'sans-serif'],
+                    },
+                    colors: {
+                        slate: {
+                            850: '#152033',
+                            900: '#0f172a',
+                            950: '#090d16',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* 自訂捲軸與隱藏橫向捲軸樣式 */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        body {
+            background-color: #0f172a;
+            color: #f8fafc;
+            -webkit-tap-highlight-color: transparent;
+        }
+        /* 平滑過渡效果 */
+        .item-card {
+            transition: transform 0.15s ease, opacity 0.2s ease, background-color 0.2s ease;
+        }
+        .item-card:active {
+            transform: scale(0.99);
+        }
+    </style>
+</head>
+<body class="min-h-screen pb-28 selection:bg-indigo-500 selection:text-white">
+
+    <!-- 頂部固定導覽與統計區 -->
+    <header class="sticky top-0 z-30 bg-slate-900/90 backdrop-blur-md border-b border-slate-800 pt-safe">
+        <div class="max-w-2xl mx-auto px-4 py-3">
+            <!-- 標題與工具列 -->
+            <div class="flex items-center justify-between mb-3">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/20">
+                        <i class="fa-solid fa-bag-shopping text-white text-base"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-lg font-bold tracking-tight text-white leading-tight">出國待買清單</h1>
+                        <p class="text-[11px] text-slate-400">IG / Threads / 小紅書 購物整合</p>
+                    </div>
+                </div>
+                
+                <div class="flex items-center gap-2">
+                    <!-- 備份/還原按鈕 -->
+                    <button onclick="openBackupModal()" class="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition active:scale-95" title="備份與還原">
+                        <i class="fa-solid fa-cloud-arrow-up text-sm"></i>
+                    </button>
+                    <!-- 更多設定按鈕 -->
+                    <button onclick="openSettingsModal()" class="p-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition active:scale-95" title="清單管理">
+                        <i class="fa-solid fa-sliders text-sm"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 進度摘要卡片 -->
+            <div class="bg-slate-800/80 border border-slate-700/60 rounded-2xl p-3.5 mb-3">
+                <div class="flex justify-between items-center mb-2">
+                    <span class="text-xs font-medium text-slate-400">採購進度</span>
+                    <div class="flex items-baseline gap-1.5">
+                        <span class="text-xs text-slate-400">已買</span>
+                        <span id="stat-purchased" class="text-lg font-bold text-emerald-400">0</span>
+                        <span class="text-xs text-slate-400">/ <span id="stat-total">0</span> 項</span>
+                    </div>
+                </div>
+                <!-- 進度條 -->
+                <div class="w-full bg-slate-900 rounded-full h-2 overflow-hidden">
+                    <div id="progress-bar" class="bg-gradient-to-r from-indigo-500 via-purple-500 to-emerald-400 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <!-- 搜尋列 -->
+            <div class="relative mb-2.5">
+                <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-sm"></i>
+                <input type="text" id="search-input" placeholder="搜尋商品名稱、店家 (如: 唐吉訶德)、代購對象..." 
+                    class="w-full bg-slate-800/90 border border-slate-700/80 text-white text-sm rounded-xl pl-10 pr-9 py-2.5 focus:outline-none focus:border-indigo-500 placeholder-slate-500 transition">
+                <button id="clear-search-btn" onclick="clearSearch()" class="hidden absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white p-1">
+                    <i class="fa-solid fa-circle-xmark text-sm"></i>
+                </button>
+            </div>
+
+            <!-- 狀態篩選 Tabs -->
+            <div class="flex gap-1.5 overflow-x-auto no-scrollbar pb-1" id="status-tabs">
+                <button data-status="all" class="status-tab active px-3.5 py-1.5 rounded-lg text-xs font-medium bg-indigo-600 text-white whitespace-nowrap transition">全部</button>
+                <button data-status="unbought" class="status-tab px-3.5 py-1.5 rounded-lg text-xs font-medium bg-slate-800 text-slate-300 hover:bg-slate-700 whitespace-nowrap transition">未買</button>
+                <button data-status="bought" class="status-tab px-3.5 py-1.5 rounded-lg text-xs font-medium bg-slate-800 text-slate-300 hover:bg-slate-700 whitespace-nowrap transition">已買</button>
+                <button data-status="proxy" class="status-tab px-3.5 py-1.5 rounded-lg text-xs font-medium bg-slate-800 text-slate-300 hover:bg-slate-700 whitespace-nowrap transition">
+                    <i class="fa-solid fa-user-group mr-1 text-pink-400"></i>幫人代購
+                </button>
+            </div>
+
+            <!-- 分類篩選列 -->
+            <div class="flex items-center gap-2 mt-2 overflow-x-auto no-scrollbar text-xs">
+                <select id="filter-category" class="bg-slate-800 border border-slate-700 text-slate-200 rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-indigo-500">
+                    <!-- 動態渲染分類選項 -->
+                </select>
+
+                <button onclick="openCategoryManagerModal()" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 hover:text-white whitespace-nowrap flex items-center gap-1 transition">
+                    <i class="fa-solid fa-tags text-indigo-400 text-[11px]"></i> 編輯分類
+                </button>
+
+                <button id="reset-filters-btn" onclick="resetAllFilters()" class="hidden px-2.5 py-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-white whitespace-nowrap">
+                    重置篩選
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- 主內容清單區 -->
+    <main class="max-w-2xl mx-auto px-4 pt-4">
+        <!-- 範例資料提示橫幅 (僅當存在範例資料時顯示) -->
+        <div id="sample-banner" class="hidden mb-4 bg-indigo-950/60 border border-indigo-500/30 rounded-2xl p-3 flex items-center justify-between gap-3">
+            <div class="flex items-center gap-2.5 text-xs text-indigo-200">
+                <i class="fa-solid fa-sparkles text-indigo-400 text-base"></i>
+                <span>目前顯示內建範例項目，方便你體驗功能。</span>
+            </div>
+            <button onclick="clearSampleData()" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium rounded-xl whitespace-nowrap transition active:scale-95">
+                清除範例
+            </button>
+        </div>
+
+        <!-- 清單容器 -->
+        <div id="wishlist-container" class="space-y-3">
+            <!-- 動態渲染項目卡片 -->
+        </div>
+
+        <!-- 空狀態提示 -->
+        <div id="empty-state" class="hidden text-center py-16 px-4">
+            <div class="w-16 h-16 rounded-2xl bg-slate-800/80 border border-slate-700 flex items-center justify-center mx-auto mb-4 text-slate-500 text-2xl">
+                <i class="fa-solid fa-basket-shopping"></i>
+            </div>
+            <h3 class="text-base font-semibold text-slate-300 mb-1">沒有符合條件的待買項目</h3>
+            <p class="text-xs text-slate-500 mb-5">點擊右下角的「+ 新增商品」，把社群滑到的好物存起來吧！</p>
+            <button onclick="openItemModal()" class="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium rounded-xl shadow-lg shadow-indigo-600/20 transition">
+                <i class="fa-solid fa-plus mr-1.5"></i>新增第一筆待買
+            </button>
+        </div>
+    </main>
+
+    <!-- 右下角懸浮新增按鈕 (FAB) -->
+    <button onclick="openItemModal()" aria-label="新增待買商品"
+        class="fixed bottom-6 right-5 z-30 flex items-center gap-2 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white font-semibold px-5 py-3.5 rounded-2xl shadow-xl shadow-indigo-600/30 transition transform active:scale-95">
+        <i class="fa-solid fa-plus text-lg"></i>
+        <span class="text-sm">新增待買</span>
+    </button>
+
+    <!-- ==================== 新增 / 編輯商品 Modal ==================== -->
+    <div id="item-modal" class="fixed inset-0 z-50 hidden bg-slate-950/80 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4">
+        <div class="bg-slate-900 border border-slate-800 w-full max-w-lg rounded-t-3xl sm:rounded-3xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden animate-slide-up">
+            <!-- Modal Header -->
+            <div class="px-5 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-900 sticky top-0 z-10">
+                <h2 id="modal-title" class="text-base font-bold text-white">新增待買商品</h2>
+                <button onclick="closeItemModal()" class="w-8 h-8 rounded-full bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <!-- Modal Body (可捲動表單) -->
+            <form id="item-form" onsubmit="saveItem(event)" class="p-5 overflow-y-auto space-y-4">
+                <input type="hidden" id="item-id">
+
+                <!-- 商品名稱 -->
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1.5">商品名稱 <span class="text-rose-400">*</span></label>
+                    <input type="text" id="item-name" required placeholder="例如：資生堂嘉美豔容露、抹茶夾心餅乾" 
+                        class="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-indigo-500">
+                </div>
+
+                <!-- 分類選擇 (Pills) -->
+                <div>
+                    <div class="flex items-center justify-between mb-1.5">
+                        <label class="block text-xs font-medium text-slate-300">商品分類</label>
+                        <button type="button" onclick="openCategoryManagerModal()" class="text-[11px] text-indigo-400 hover:text-indigo-300 flex items-center gap-1">
+                            <i class="fa-solid fa-pen-to-square"></i> 管理分類
+                        </button>
+                    </div>
+                    <div class="grid grid-cols-3 gap-2" id="category-pills">
+                        <!-- JS 動態生成 -->
+                    </div>
+                    <input type="hidden" id="item-category" value="藥妝保養">
+                </div>
+
+                <!-- 目標店家 / 地點 -->
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1.5">目標店家 / 地點 <span class="text-slate-500 font-normal">(選填)</span></label>
+                    <input type="text" id="item-store" placeholder="如：唐吉訶德、松本清、機場免稅店" list="store-suggestions"
+                        class="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-xl px-3.5 py-2.5 focus:outline-none focus:border-indigo-500">
+                    <datalist id="store-suggestions">
+                        <option value="唐吉訶德">
+                        <option value="松本清">
+                        <option value="大國藥妝">
+                        <option value="機場免稅店">
+                        <option value="7-11 / 全家 / Lawson">
+                        <option value="Olive Young">
+                        <option value="無印良品">
+                        <option value="BIC CAMERA">
+                    </datalist>
+                </div>
+
+                <!-- 原貼文連結 (URL) -->
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1.5">
+                        參考貼文 / 影片連結 <span class="text-slate-500 font-normal">(方便在店內一鍵查看)</span>
+                    </label>
+                    <div class="relative">
+                        <i class="fa-solid fa-link absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 text-xs"></i>
+                        <input type="url" id="item-url" placeholder="貼上社群貼文或攻略網址..." 
+                            class="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-xl pl-9 pr-3.5 py-2.5 focus:outline-none focus:border-indigo-500">
+                    </div>
+                </div>
+
+                <!-- 幫朋友代購開關 -->
+                <div class="bg-slate-800/70 border border-slate-700/70 rounded-xl p-3">
+                    <label class="flex items-center justify-between cursor-pointer">
+                        <div class="flex items-center gap-2">
+                            <i class="fa-solid fa-user-tag text-pink-400 text-sm"></i>
+                            <span class="text-sm font-medium text-slate-200">幫朋友代購</span>
+                        </div>
+                        <input type="checkbox" id="item-is-proxy" onchange="toggleProxyInput()" class="w-4 h-4 accent-pink-500 rounded">
+                    </label>
+                    <div id="proxy-name-wrapper" class="hidden mt-2.5">
+                        <input type="text" id="item-proxy-name" placeholder="輸入委託人名字 (例如：小美、老媽)" 
+                            class="w-full bg-slate-900 border border-slate-700 text-white text-sm rounded-lg px-3 py-2 focus:outline-none focus:border-pink-500">
+                    </div>
+                </div>
+
+                <!-- 參考圖片 (上傳縮圖 或 貼上圖片網址) -->
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1.5">
+                        參考圖片 <span class="text-slate-500 font-normal">(自動壓縮省空間，方便比對包裝)</span>
+                    </label>
+                    <div class="flex items-center gap-3">
+                        <label class="flex-1 flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-750 border border-dashed border-slate-600 rounded-xl py-2.5 px-3 cursor-pointer text-xs text-slate-300 transition">
+                            <i class="fa-solid fa-camera text-indigo-400"></i>
+                            <span>選擇相簿截圖 / 拍照</span>
+                            <input type="file" id="item-image-file" accept="image/*" onchange="handleImageUpload(event)" class="hidden">
+                        </label>
+                        <button type="button" id="remove-img-btn" onclick="clearImagePreview()" class="hidden px-3 py-2.5 bg-rose-950/60 text-rose-400 border border-rose-800/50 rounded-xl text-xs">
+                            移除圖片
+                        </button>
+                    </div>
+                    <!-- 圖片預覽區 -->
+                    <div id="image-preview-box" class="hidden mt-2.5 relative w-24 h-24 rounded-xl overflow-hidden border border-slate-700 bg-slate-800">
+                        <img id="image-preview" src="" alt="預覽圖" class="w-full h-full object-cover">
+                    </div>
+                    <input type="hidden" id="item-image-data">
+                </div>
+
+                <!-- 備註 -->
+                <div>
+                    <label class="block text-xs font-medium text-slate-300 mb-1.5">備註 (色號、規格、退稅門檻等)</label>
+                    <textarea id="item-note" rows="2" placeholder="例如：要買藍色包裝的、超過 5500 日圓可退稅..." 
+                        class="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-xl px-3.5 py-2 focus:outline-none focus:border-indigo-500"></textarea>
+                </div>
+
+                <!-- 儲存按鈕 -->
+                <div class="pt-2">
+                    <button type="submit" class="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-xl shadow-lg shadow-indigo-600/20 transition active:scale-98">
+                        儲存項目
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ==================== 圖片放大檢視 Modal ==================== -->
+    <div id="lightbox-modal" onclick="closeLightbox()" class="fixed inset-0 z-50 hidden bg-black/90 backdrop-blur-md flex items-center justify-center p-4">
+        <div class="relative max-w-lg w-full">
+            <button onclick="closeLightbox()" class="absolute -top-10 right-0 text-white/80 hover:text-white text-sm flex items-center gap-1">
+                <i class="fa-solid fa-xmark text-lg"></i> 關閉
+            </button>
+            <img id="lightbox-img" src="" alt="放大檢視" class="w-full max-h-[80vh] object-contain rounded-2xl border border-slate-800">
+        </div>
+    </div>
+
+    <!-- ==================== 備份與還原 Modal ==================== -->
+    <div id="backup-modal" class="fixed inset-0 z-50 hidden bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 w-full max-w-md rounded-3xl p-5 shadow-2xl">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-base font-bold text-white flex items-center gap-2">
+                    <i class="fa-solid fa-database text-indigo-400"></i> 清單備份與還原
+                </h3>
+                <button onclick="closeBackupModal()" class="w-8 h-8 rounded-full bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            
+            <p class="text-xs text-slate-400 mb-4 leading-relaxed">
+                所有資料皆儲存在你的手機瀏覽器中。建議出國前匯出 JSON 備份，或透過文字複製傳送到 LINE 備忘錄保存。
+            </p>
+
+            <div class="grid grid-cols-2 gap-2.5 mb-4">
+                <button onclick="downloadJsonBackup()" class="flex items-center justify-center gap-2 py-2.5 px-3 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium rounded-xl border border-slate-700 transition">
+                    <i class="fa-solid fa-download text-indigo-400"></i> 下載 JSON 檔
+                </button>
+                <label class="flex items-center justify-center gap-2 py-2.5 px-3 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium rounded-xl border border-slate-700 cursor-pointer transition">
+                    <i class="fa-solid fa-upload text-emerald-400"></i> 匯入 JSON 檔
+                    <input type="file" accept=".json" onchange="uploadJsonBackup(event)" class="hidden">
+                </label>
+            </div>
+
+            <div class="mb-3">
+                <div class="flex justify-between items-center mb-1.5">
+                    <label class="text-xs font-medium text-slate-300">JSON 資料代碼 (可直接複製或貼上還原)</label>
+                    <button onclick="copyBackupText()" class="text-xs text-indigo-400 hover:text-indigo-300 font-medium">
+                        <i class="fa-regular fa-copy mr-1"></i>複製代碼
+                    </button>
+                </div>
+                <textarea id="backup-textarea" rows="4" class="w-full bg-slate-950 border border-slate-800 text-slate-300 font-mono text-[11px] rounded-xl p-3 focus:outline-none focus:border-indigo-500"></textarea>
+            </div>
+
+            <button onclick="restoreFromTextarea()" class="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-xl transition">
+                從上方代碼覆蓋還原清單
+            </button>
+        </div>
+    </div>
+
+    <!-- ==================== 清單管理設定 Modal ==================== -->
+    <div id="settings-modal" class="fixed inset-0 z-50 hidden bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 w-full max-w-sm rounded-3xl p-5 shadow-2xl">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-base font-bold text-white">清單管理</h3>
+                <button onclick="closeSettingsModal()" class="w-8 h-8 rounded-full bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <div class="space-y-3">
+                <button onclick="closeSettingsModal(); openCategoryManagerModal();" class="w-full flex items-center justify-between p-3.5 bg-slate-800/80 hover:bg-slate-800 border border-slate-700 rounded-2xl text-left transition">
+                    <div>
+                        <div class="text-sm font-medium text-slate-200">自訂與編輯商品分類</div>
+                        <div class="text-[11px] text-slate-400 mt-0.5">新增、修改名稱、更換圖示或刪除分類</div>
+                    </div>
+                    <i class="fa-solid fa-tags text-indigo-400"></i>
+                </button>
+
+                <button onclick="promptConfirmAction('uncheckAll')" class="w-full flex items-center justify-between p-3.5 bg-slate-800/80 hover:bg-slate-800 border border-slate-700 rounded-2xl text-left transition">
+                    <div>
+                        <div class="text-sm font-medium text-slate-200">一鍵清除所有「已買」勾選</div>
+                        <div class="text-[11px] text-slate-400 mt-0.5">保留所有商品資料，方便下次出國重複使用</div>
+                    </div>
+                    <i class="fa-solid fa-rotate-left text-amber-400"></i>
+                </button>
+
+                <button onclick="promptConfirmAction('deleteBought')" class="w-full flex items-center justify-between p-3.5 bg-slate-800/80 hover:bg-slate-800 border border-slate-700 rounded-2xl text-left transition">
+                    <div>
+                        <div class="text-sm font-medium text-slate-200">刪除所有「已買」項目</div>
+                        <div class="text-[11px] text-slate-400 mt-0.5">僅保留尚未購買的清單項目</div>
+                    </div>
+                    <i class="fa-solid fa-broom text-indigo-400"></i>
+                </button>
+
+                <button onclick="promptConfirmAction('clearAll')" class="w-full flex items-center justify-between p-3.5 bg-rose-950/30 hover:bg-rose-950/50 border border-rose-900/50 rounded-2xl text-left transition">
+                    <div>
+                        <div class="text-sm font-medium text-rose-400">清空整份清單</div>
+                        <div class="text-[11px] text-rose-400/70 mt-0.5">永久刪除所有紀錄 (無法復原)</div>
+                    </div>
+                    <i class="fa-solid fa-trash-can text-rose-400"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== 自訂分類管理 Modal ==================== -->
+    <div id="category-manager-modal" class="fixed inset-0 z-50 hidden bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 w-full max-w-md rounded-3xl p-5 shadow-2xl max-h-[85vh] flex flex-col">
+            <div class="flex items-center justify-between mb-4 shrink-0">
+                <h3 class="text-base font-bold text-white flex items-center gap-2">
+                    <i class="fa-solid fa-tags text-indigo-400"></i> 編輯商品分類
+                </h3>
+                <button onclick="closeCategoryManagerModal()" class="w-8 h-8 rounded-full bg-slate-800 text-slate-400 hover:text-white flex items-center justify-center">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <!-- 新增分類表單 -->
+            <form onsubmit="addNewCategory(event)" class="flex gap-2 mb-4 shrink-0">
+                <input type="text" id="new-cat-icon" value="🏷️" maxlength="4" placeholder="圖示"
+                    class="w-14 text-center bg-slate-800 border border-slate-700 text-white text-sm rounded-xl py-2 focus:outline-none focus:border-indigo-500">
+                <input type="text" id="new-cat-name" required placeholder="輸入新分類名稱 (如：扭蛋公仔)"
+                    class="flex-1 bg-slate-800 border border-slate-700 text-white text-sm rounded-xl px-3 py-2 focus:outline-none focus:border-indigo-500">
+                <button type="submit" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-xl whitespace-nowrap transition">
+                    新增
+                </button>
+            </form>
+
+            <!-- 現有分類列表 -->
+            <div id="category-manager-list" class="space-y-2 overflow-y-auto pr-1 flex-1">
+                <!-- JS 動態生成 -->
+            </div>
+
+            <div class="mt-4 pt-3 border-t border-slate-800 flex justify-between items-center shrink-0">
+                <button type="button" onclick="resetDefaultCategories()" class="text-xs text-slate-400 hover:text-amber-400 transition">
+                    <i class="fa-solid fa-rotate-left mr-1"></i>恢復預設分類
+                </button>
+                <button type="button" onclick="closeCategoryManagerModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white text-xs font-medium rounded-xl transition">
+                    完成
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== 自訂確認對話框 (取代 confirm) ==================== -->
+    <div id="confirm-modal" class="fixed inset-0 z-50 hidden bg-slate-950/85 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 w-full max-w-xs rounded-3xl p-5 shadow-2xl text-center">
+            <div class="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-400 flex items-center justify-center mx-auto mb-3 text-xl">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+            </div>
+            <h4 id="confirm-title" class="text-base font-bold text-white mb-1.5">確定要執行嗎？</h4>
+            <p id="confirm-desc" class="text-xs text-slate-400 mb-5 leading-relaxed">此操作將會更新你的購物清單。</p>
+            <div class="grid grid-cols-2 gap-2.5">
+                <button onclick="closeConfirmModal()" class="py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium rounded-xl transition">
+                    取消
+                </button>
+                <button id="confirm-yes-btn" class="py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-xl transition">
+                    確定執行
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== Toast 提示訊息 ==================== -->
+    <div id="toast" class="fixed bottom-24 left-1/2 -translate-x-1/2 z-50 pointer-events-none opacity-0 transition-opacity duration-200">
+        <div class="bg-slate-800/95 border border-slate-700 text-white text-xs font-medium px-4 py-2.5 rounded-full shadow-xl flex items-center gap-2">
+            <i id="toast-icon" class="fa-solid fa-circle-check text-emerald-400"></i>
+            <span id="toast-msg">已儲存</span>
+        </div>
+    </div>
+
+    <script>
+        // ==================== 常數與設定 ====================
+        const STORAGE_KEY = 'travel_wishlist_items_v1';
+        const CATEGORIES_STORAGE_KEY = 'travel_wishlist_categories_v1';
+
+        const COLOR_PALETTE = [
+            'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
+            'bg-amber-500/15 text-amber-300 border-amber-500/30',
+            'bg-purple-500/15 text-purple-300 border-purple-500/30',
+            'bg-sky-500/15 text-sky-300 border-sky-500/30',
+            'bg-teal-500/15 text-teal-300 border-teal-500/30',
+            'bg-rose-500/15 text-rose-300 border-rose-500/30',
+            'bg-indigo-500/15 text-indigo-300 border-indigo-500/30',
+            'bg-orange-500/15 text-orange-300 border-orange-500/30'
+        ];
+
+        const DEFAULT_CATEGORIES = [
+            { name: '藥妝保養', icon: '💊', badgeClass: COLOR_PALETTE[0] },
+            { name: '零食伴手禮', icon: '🍪', badgeClass: COLOR_PALETTE[1] },
+            { name: '服飾精品', icon: '👕', badgeClass: COLOR_PALETTE[2] },
+            { name: '3C電器', icon: '🔌', badgeClass: COLOR_PALETTE[3] },
+            { name: '生活雜貨', icon: '🏠', badgeClass: COLOR_PALETTE[4] },
+            { name: '其他', icon: '📦', badgeClass: 'bg-slate-500/20 text-slate-300 border-slate-500/30' }
+        ];
+
+        let categories = [];
+
+        const SAMPLE_ITEMS = [
+            {
+                id: 'sample-1',
+                name: '大正製藥 百保能黃金A微粒 (44包)',
+                category: '藥妝保養',
+                url: 'https://www.threads.net/',
+                store: '松本清 / 大國藥妝',
+                isProxy: true,
+                proxyName: '老媽',
+                note: '要買微粒粉狀的，比錠狀有效，記得比價',
+                image: '',
+                purchased: false,
+                isSample: true,
+                createdAt: Date.now() - 300000
+            },
+            {
+                id: 'sample-2',
+                name: 'NY Perfect Cheese 起司奶油脆餅',
+                category: '零食伴手禮',
+                url: 'https://www.instagram.com/',
+                store: '東京車站 / 羽田機場免稅',
+                isProxy: false,
+                proxyName: '',
+                note: '8入或12入裝皆可，早上容易賣完要早點去排',
+                image: '',
+                purchased: false,
+                isSample: true,
+                createdAt: Date.now() - 200000
+            },
+            {
+                id: 'sample-3',
+                name: '無印良品 睡眠麻藥精油 (おやすみブレンド)',
+                category: '生活雜貨',
+                url: 'https://www.xiaohongshu.com/',
+                store: 'MUJI 無印良品',
+                isProxy: false,
+                proxyName: '',
+                note: '社群爆紅助眠噴霧/精油，看到有貨直接拿',
+                image: '',
+                purchased: true,
+                isSample: true,
+                createdAt: Date.now() - 100000
+            }
+        ];
+
+        // ==================== 狀態管理 ====================
+        let items = [];
+        let currentStatusFilter = 'all';
+        let currentCategoryFilter = 'all';
+        let searchQuery = '';
+        let pendingConfirmAction = null;
+
+        // ==================== 初始化 ====================
+        document.addEventListener('DOMContentLoaded', () => {
+            loadCategories();
+            loadItems();
+            renderCategoryDropdown();
+            initModalPills();
+            bindEvents();
+            renderAll();
+        });
+
+        function loadCategories() {
+            try {
+                const raw = localStorage.getItem(CATEGORIES_STORAGE_KEY);
+                if (raw) {
+                    const parsed = JSON.parse(raw);
+                    if (Array.isArray(parsed) && parsed.length > 0) {
+                        categories = parsed;
+                        return;
+                    }
+                }
+            } catch (e) {
+                console.error('讀取分類失敗:', e);
+            }
+            categories = JSON.parse(JSON.stringify(DEFAULT_CATEGORIES));
+            saveCategoriesToStorage();
+        }
+
+        function saveCategoriesToStorage() {
+            try {
+                localStorage.setItem(CATEGORIES_STORAGE_KEY, JSON.stringify(categories));
+            } catch (e) {
+                console.error('儲存分類失敗:', e);
+            }
+        }
+
+        function getCategoryMeta(catName) {
+            const found = categories.find(c => c.name === catName);
+            if (found) return found;
+            return { name: catName || '未分類', icon: '🏷️', badgeClass: 'bg-slate-500/20 text-slate-300 border-slate-500/30' };
+        }
+
+        function loadItems() {
+            try {
+                const raw = localStorage.getItem(STORAGE_KEY);
+                if (raw === null) {
+                    items = [...SAMPLE_ITEMS];
+                    saveItemsToStorage();
+                } else {
+                    items = JSON.parse(raw) || [];
+                }
+            } catch (e) {
+                console.error('讀取 localStorage 失敗:', e);
+                items = [];
+            }
+        }
+
+        function saveItemsToStorage() {
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+            } catch (e) {
+                showToast('儲存空間已滿，建議刪除部分圖片或備份資料', 'error');
+            }
+        }
+
+        function bindEvents() {
+            // 搜尋框監聽
+            const searchInput = document.getElementById('search-input');
+            const clearBtn = document.getElementById('clear-search-btn');
+            searchInput.addEventListener('input', (e) => {
+                searchQuery = e.target.value.trim().toLowerCase();
+                clearBtn.classList.toggle('hidden', searchQuery === '');
+                updateResetFilterButton();
+                renderList();
+            });
+
+            // 狀態 Tab 點擊
+            document.querySelectorAll('.status-tab').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    document.querySelectorAll('.status-tab').forEach(b => {
+                        b.classList.remove('active', 'bg-indigo-600', 'text-white');
+                        b.classList.add('bg-slate-800', 'text-slate-300');
+                    });
+                    btn.classList.add('active', 'bg-indigo-600', 'text-white');
+                    btn.classList.remove('bg-slate-800', 'text-slate-300');
+                    currentStatusFilter = btn.dataset.status;
+                    updateResetFilterButton();
+                    renderList();
+                });
+            });
+
+            // 分類下拉選單
+            document.getElementById('filter-category').addEventListener('change', (e) => {
+                currentCategoryFilter = e.target.value;
+                updateResetFilterButton();
+                renderList();
+            });
+        }
+
+        function clearSearch() {
+            const searchInput = document.getElementById('search-input');
+            searchInput.value = '';
+            searchQuery = '';
+            document.getElementById('clear-search-btn').classList.add('hidden');
+            updateResetFilterButton();
+            renderList();
+        }
+
+        function resetAllFilters() {
+            clearSearch();
+            currentStatusFilter = 'all';
+            currentCategoryFilter = 'all';
+            document.getElementById('filter-category').value = 'all';
+            
+            document.querySelectorAll('.status-tab').forEach(b => {
+                const isAll = b.dataset.status === 'all';
+                b.classList.toggle('active', isAll);
+                b.classList.toggle('bg-indigo-600', isAll);
+                b.classList.toggle('text-white', isAll);
+                b.classList.toggle('bg-slate-800', !isAll);
+                b.classList.toggle('text-slate-300', !isAll);
+            });
+            updateResetFilterButton();
+            renderList();
+        }
+
+        function updateResetFilterButton() {
+            const isFiltered = searchQuery !== '' || currentStatusFilter !== 'all' || currentCategoryFilter !== 'all';
+            document.getElementById('reset-filters-btn').classList.toggle('hidden', !isFiltered);
+        }
+
+        // ==================== 畫面渲染 ====================
+        function renderAll() {
+            updateStats();
+            renderList();
+            // 檢查是否有範例資料
+            const hasSample = items.some(item => item.isSample);
+            document.getElementById('sample-banner').classList.toggle('hidden', !hasSample);
+        }
+
+        function updateStats() {
+            const totalCount = items.length;
+            const boughtCount = items.filter(i => i.purchased).length;
+
+            document.getElementById('stat-purchased').textContent = boughtCount;
+            document.getElementById('stat-total').textContent = totalCount;
+
+            const percent = totalCount === 0 ? 0 : Math.round((boughtCount / totalCount) * 100);
+            document.getElementById('progress-bar').style.width = `${percent}%`;
+        }
+
+        function renderList() {
+            const container = document.getElementById('wishlist-container');
+            const emptyState = document.getElementById('empty-state');
+
+            // 篩選資料
+            let filtered = items.filter(item => {
+                if (currentStatusFilter === 'unbought' && item.purchased) return false;
+                if (currentStatusFilter === 'bought' && !item.purchased) return false;
+                if (currentStatusFilter === 'proxy' && !item.isProxy) return false;
+                if (currentCategoryFilter !== 'all' && item.category !== currentCategoryFilter) return false;
+
+                if (searchQuery) {
+                    const haystack = `${item.name} ${item.store} ${item.note} ${item.proxyName} ${item.category}`.toLowerCase();
+                    if (!haystack.includes(searchQuery)) return false;
+                }
+                return true;
+            });
+
+            // 排序：未買在前，已買在後；同狀態依建立時間新到舊
+            filtered.sort((a, b) => {
+                if (a.purchased !== b.purchased) {
+                    return a.purchased ? 1 : -1;
+                }
+                return (b.createdAt || 0) - (a.createdAt || 0);
+            });
+
+            if (filtered.length === 0) {
+                container.innerHTML = '';
+                emptyState.classList.remove('hidden');
+                return;
+            }
+
+            emptyState.classList.add('hidden');
+            container.innerHTML = filtered.map(item => createItemCardHTML(item)).join('');
+        }
+
+        function createItemCardHTML(item) {
+            const catMeta = getCategoryMeta(item.category);
+            
+            const checkedStyle = item.purchased 
+                ? 'bg-slate-900/50 border-slate-800/70 opacity-60' 
+                : 'bg-slate-800/75 border-slate-700/70 hover:border-slate-600';
+
+            const titleStyle = item.purchased ? 'line-through text-slate-400' : 'text-white';
+
+            return `
+            <div class="item-card rounded-2xl border p-3.5 ${checkedStyle} relative">
+                <div class="flex items-start gap-3">
+                    <!-- 大尺寸勾選按鈕 (方便單手店內操作) -->
+                    <button onclick="togglePurchased('${item.id}')" aria-label="標記已買"
+                        class="mt-0.5 w-7 h-7 rounded-xl border-2 flex items-center justify-center shrink-0 transition active:scale-90 ${item.purchased ? 'bg-emerald-500 border-emerald-500 text-slate-950' : 'border-slate-500 hover:border-indigo-400 bg-slate-900/50'}">
+                        ${item.purchased ? '<i class="fa-solid fa-check text-sm font-bold"></i>' : ''}
+                    </button>
+
+                    <!-- 主要資訊區塊 -->
+                    <div class="flex-1 min-w-0">
+                        <!-- 標籤列：分類 + 代購標籤 -->
+                        <div class="flex flex-wrap items-center gap-1.5 mb-1.5">
+                            <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium border ${catMeta.badgeClass}">
+                                ${catMeta.icon} ${escapeHTML(item.category)}
+                            </span>
+                            ${item.isProxy ? `
+                                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium bg-pink-500/15 text-pink-300 border border-pink-500/30">
+                                    <i class="fa-solid fa-user-tag text-[10px]"></i> 代購${item.proxyName ? `: ${escapeHTML(item.proxyName)}` : ''}
+                                </span>
+                            ` : ''}
+                        </div>
+
+                        <!-- 商品標題 -->
+                        <h3 class="text-base font-bold leading-snug break-words ${titleStyle}">
+                            ${escapeHTML(item.name)}
+                        </h3>
+
+                        <!-- 購買地點資訊 -->
+                        ${item.store ? `
+                            <div class="mt-1.5 text-xs text-indigo-300 flex items-center gap-1">
+                                <i class="fa-solid fa-location-dot text-[11px]"></i>
+                                <span>${escapeHTML(item.store)}</span>
+                            </div>
+                        ` : ''}
+
+                        <!-- 備註文字 -->
+                        ${item.note ? `
+                            <p class="mt-2 text-xs text-slate-300/90 bg-slate-900/60 rounded-xl px-2.5 py-1.5 border border-slate-800/80 leading-relaxed">
+                                ${escapeHTML(item.note)}
+                            </p>
+                        ` : ''}
+
+                        <!-- 底部快速操作列：開啟原貼文 / 編輯 / 刪除 -->
+                        <div class="flex items-center justify-between mt-3 pt-2.5 border-t border-slate-700/50">
+                            <div>
+                                ${item.url ? `
+                                    <a href="${escapeHTML(item.url)}" target="_blank" rel="noopener noreferrer" 
+                                        class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-300 text-xs font-medium transition">
+                                        <i class="fa-solid fa-arrow-up-right-from-square text-[11px]"></i> 開啟原貼文
+                                    </a>
+                                ` : `
+                                    <span class="text-[11px] text-slate-600">未附貼文連結</span>
+                                `}
+                            </div>
+
+                            <div class="flex items-center gap-1">
+                                <button onclick="openItemModal('${item.id}')" class="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700/60 transition" title="編輯">
+                                    <i class="fa-solid fa-pen-to-square text-xs"></i>
+                                </button>
+                                <button onclick="deleteItem('${item.id}')" class="p-2 rounded-lg text-slate-400 hover:text-rose-400 hover:bg-rose-950/40 transition" title="刪除">
+                                    <i class="fa-solid fa-trash-can text-xs"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 右側參考縮圖 (若有上傳) -->
+                    ${item.image ? `
+                        <button onclick="openLightbox('${item.image}')" class="w-16 h-16 rounded-xl overflow-hidden border border-slate-700 shrink-0 bg-slate-900 relative group">
+                            <img src="${item.image}" alt="商品參考圖" class="w-full h-full object-cover">
+                            <div class="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 flex items-center justify-center transition">
+                                <i class="fa-solid fa-magnifying-glass-plus text-white text-xs"></i>
+                            </div>
+                        </button>
+                    ` : ''}
+                </div>
+            </div>
+            `;
+        }
+
+        // ==================== 新增 / 編輯 Modal 邏輯 ====================
+        function renderCategoryDropdown() {
+            const select = document.getElementById('filter-category');
+            const prevVal = select.value || 'all';
+            select.innerHTML = `<option value="all">📂 所有分類</option>` + 
+                categories.map(c => `<option value="${escapeHTML(c.name)}">${escapeHTML(c.icon)} ${escapeHTML(c.name)}</option>`).join('');
+            
+            if (prevVal === 'all' || categories.some(c => c.name === prevVal)) {
+                select.value = prevVal;
+            } else {
+                select.value = 'all';
+                currentCategoryFilter = 'all';
+            }
+        }
+
+        function initModalPills() {
+            const catContainer = document.getElementById('category-pills');
+            catContainer.innerHTML = categories.map(cat => `
+                <button type="button" data-val="${escapeHTML(cat.name)}" onclick="selectPill('category', '${escapeHTML(cat.name).replace(/'/g, "\\'")}')"
+                    class="cat-pill py-2 px-2 rounded-xl border text-xs font-medium flex items-center justify-center gap-1 transition truncate">
+                    <span>${escapeHTML(cat.icon)}</span>
+                    <span class="truncate">${escapeHTML(cat.name)}</span>
+                </button>
+            `).join('');
+        }
+
+        function selectPill(type, value) {
+            if (type === 'category') {
+                const targetCat = categories.some(c => c.name === value) ? value : (categories[0]?.name || '');
+                document.getElementById('item-category').value = targetCat;
+                document.querySelectorAll('.cat-pill').forEach(btn => {
+                    const active = btn.dataset.val === targetCat;
+                    btn.className = `cat-pill py-2 px-2 rounded-xl border text-xs font-medium flex items-center justify-center gap-1 transition truncate ${
+                        active ? 'bg-indigo-600 border-indigo-500 text-white shadow-sm' : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-750'
+                    }`;
+                });
+            }
+        }
+
+        function toggleProxyInput() {
+            const isChecked = document.getElementById('item-is-proxy').checked;
+            document.getElementById('proxy-name-wrapper').classList.toggle('hidden', !isChecked);
+            if (isChecked) {
+                document.getElementById('item-proxy-name').focus();
+            }
+        }
+
+        function openItemModal(editId = null) {
+            const form = document.getElementById('item-form');
+            form.reset();
+            clearImagePreview();
+
+            if (editId) {
+                const item = items.find(i => i.id === editId);
+                if (!item) return;
+
+                document.getElementById('modal-title').textContent = '編輯待買商品';
+                document.getElementById('item-id').value = item.id;
+                document.getElementById('item-name').value = item.name;
+                selectPill('category', item.category || '藥妝保養');
+                document.getElementById('item-url').value = item.url || '';
+                document.getElementById('item-store').value = item.store || '';
+                document.getElementById('item-is-proxy').checked = !!item.isProxy;
+                document.getElementById('item-proxy-name').value = item.proxyName || '';
+                toggleProxyInput();
+                document.getElementById('item-note').value = item.note || '';
+
+                if (item.image) {
+                    setImagePreview(item.image);
+                }
+            } else {
+                document.getElementById('modal-title').textContent = '新增待買商品';
+                document.getElementById('item-id').value = '';
+                selectPill('category', categories[0]?.name || '藥妝保養');
+                document.getElementById('item-is-proxy').checked = false;
+                toggleProxyInput();
+            }
+
+            document.getElementById('item-modal').classList.remove('hidden');
+        }
+
+        function closeItemModal() {
+            document.getElementById('item-modal').classList.add('hidden');
+        }
+
+        // 圖片上傳並透過 Canvas 壓縮至適合 localStorage 的大小
+        function handleImageUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    const canvas = document.createElement('canvas');
+                    const MAX_WIDTH = 400;
+                    const MAX_HEIGHT = 400;
+                    let width = img.width;
+                    let height = img.height;
+
+                    if (width > height) {
+                        if (width > MAX_WIDTH) {
+                            height *= MAX_WIDTH / width;
+                            width = MAX_WIDTH;
+                        }
+                    } else {
+                        if (height > MAX_HEIGHT) {
+                            width *= MAX_HEIGHT / height;
+                            height = MAX_HEIGHT;
+                        }
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    // 壓縮為 JPEG 0.7 品質
+                    const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.7);
+                    setImagePreview(compressedDataUrl);
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function setImagePreview(dataUrl) {
+            document.getElementById('item-image-data').value = dataUrl;
+            document.getElementById('image-preview').src = dataUrl;
+            document.getElementById('image-preview-box').classList.remove('hidden');
+            document.getElementById('remove-img-btn').classList.remove('hidden');
+        }
+
+        function clearImagePreview() {
+            document.getElementById('item-image-data').value = '';
+            document.getElementById('item-image-file').value = '';
+            document.getElementById('image-preview').src = '';
+            document.getElementById('image-preview-box').classList.add('hidden');
+            document.getElementById('remove-img-btn').classList.add('hidden');
+        }
+
+        function saveItem(event) {
+            event.preventDefault();
+            const id = document.getElementById('item-id').value;
+            const name = document.getElementById('item-name').value.trim();
+            if (!name) return;
+
+            const isProxy = document.getElementById('item-is-proxy').checked;
+            const itemData = {
+                name,
+                category: document.getElementById('item-category').value,
+                url: document.getElementById('item-url').value.trim(),
+                store: document.getElementById('item-store').value.trim(),
+                isProxy,
+                proxyName: isProxy ? document.getElementById('item-proxy-name').value.trim() : '',
+                image: document.getElementById('item-image-data').value,
+                note: document.getElementById('item-note').value.trim(),
+                isSample: false
+            };
+
+            if (id) {
+                const index = items.findIndex(i => i.id === id);
+                if (index !== -1) {
+                    items[index] = { ...items[index], ...itemData };
+                    showToast('已更新商品資訊');
+                }
+            } else {
+                const newItem = {
+                    ...itemData,
+                    id: 'item-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5),
+                    purchased: false,
+                    createdAt: Date.now()
+                };
+                items.unshift(newItem);
+                showToast('已加入待買清單');
+            }
+
+            saveItemsToStorage();
+            closeItemModal();
+            renderAll();
+        }
+
+        // ==================== 項目快速操作 ====================
+        function togglePurchased(id) {
+            const item = items.find(i => i.id === id);
+            if (!item) return;
+            item.purchased = !item.purchased;
+            saveItemsToStorage();
+            renderAll();
+            if (item.purchased) {
+                showToast(`已勾選：${item.name}`);
+            }
+        }
+
+        function deleteItem(id) {
+            items = items.filter(i => i.id !== id);
+            saveItemsToStorage();
+            renderAll();
+            showToast('已刪除該項目');
+        }
+
+        function clearSampleData() {
+            items = items.filter(i => !i.isSample);
+            saveItemsToStorage();
+            renderAll();
+            showToast('已清除範例資料');
+        }
+
+        // ==================== 圖片燈箱 ====================
+        function openLightbox(src) {
+            document.getElementById('lightbox-img').src = src;
+            document.getElementById('lightbox-modal').classList.remove('hidden');
+        }
+
+        function closeLightbox() {
+            document.getElementById('lightbox-modal').classList.add('hidden');
+        }
+
+        // ==================== 備份與還原功能 ====================
+        function openBackupModal() {
+            document.getElementById('backup-textarea').value = JSON.stringify(items, null, 2);
+            document.getElementById('backup-modal').classList.remove('hidden');
+        }
+
+        function closeBackupModal() {
+            document.getElementById('backup-modal').classList.add('hidden');
+        }
+
+        function copyBackupText() {
+            const textarea = document.getElementById('backup-textarea');
+            textarea.select();
+            textarea.setSelectionRange(0, 99999);
+            try {
+                document.execCommand('copy');
+                showToast('已複製 JSON 備份代碼');
+            } catch (e) {
+                showToast('複製失敗，請手動全選複製', 'error');
+            }
+        }
+
+        function downloadJsonBackup() {
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(items, null, 2));
+            const downloadAnchor = document.createElement('a');
+            const dateStr = new Date().toISOString().slice(0, 10);
+            downloadAnchor.setAttribute("href", dataStr);
+            downloadAnchor.setAttribute("download", `出國待買清單_${dateStr}.json`);
+            document.body.appendChild(downloadAnchor);
+            downloadAnchor.click();
+            downloadAnchor.remove();
+            showToast('已下載備份檔案');
+        }
+
+        function uploadJsonBackup(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                document.getElementById('backup-textarea').value = e.target.result;
+                restoreFromTextarea();
+            };
+            reader.readAsText(file);
+        }
+
+        function restoreFromTextarea() {
+            try {
+                const raw = document.getElementById('backup-textarea').value.trim();
+                const parsed = JSON.parse(raw);
+                if (!Array.isArray(parsed)) {
+                    throw new Error('格式不正確');
+                }
+                items = parsed;
+                saveItemsToStorage();
+                renderAll();
+                closeBackupModal();
+                showToast(`成功還原 ${items.length} 筆待買資料`);
+            } catch (e) {
+                showToast('JSON 格式錯誤，無法還原', 'error');
+            }
+        }
+
+        // ==================== 清單管理與確認視窗 ====================
+        function openSettingsModal() {
+            document.getElementById('settings-modal').classList.remove('hidden');
+        }
+
+        function closeSettingsModal() {
+            document.getElementById('settings-modal').classList.add('hidden');
+        }
+
+        // ==================== 自訂分類管理邏輯 ====================
+        function openCategoryManagerModal() {
+            renderCategoryManagerList();
+            document.getElementById('category-manager-modal').classList.remove('hidden');
+        }
+
+        function closeCategoryManagerModal() {
+            document.getElementById('category-manager-modal').classList.add('hidden');
+            // 同步更新主畫面下拉選單與新增商品的分類按鈕
+            const currentSelected = document.getElementById('item-category').value;
+            renderCategoryDropdown();
+            initModalPills();
+            selectPill('category', currentSelected);
+            renderAll();
+        }
+
+        function renderCategoryManagerList() {
+            const listEl = document.getElementById('category-manager-list');
+            listEl.innerHTML = categories.map((cat, idx) => `
+                <div class="flex items-center gap-2 bg-slate-800/80 border border-slate-700/80 rounded-xl p-2">
+                    <input type="text" value="${escapeHTML(cat.icon)}" maxlength="4" 
+                        onchange="updateCategoryField(${idx}, 'icon', this.value)"
+                        class="w-11 text-center bg-slate-900 border border-slate-700 text-white text-sm rounded-lg py-1.5 focus:outline-none focus:border-indigo-500" title="點擊修改圖示">
+                    <input type="text" value="${escapeHTML(cat.name)}" 
+                        onchange="updateCategoryField(${idx}, 'name', this.value)"
+                        class="flex-1 bg-slate-900 border border-slate-700 text-white text-xs font-medium rounded-lg px-2.5 py-1.5 focus:outline-none focus:border-indigo-500" title="點擊修改分類名稱">
+                    <button type="button" onclick="deleteCategory(${idx})" 
+                        class="p-2 text-slate-400 hover:text-rose-400 rounded-lg hover:bg-rose-950/40 transition" title="刪除分類">
+                        <i class="fa-solid fa-trash-can text-xs"></i>
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        function addNewCategory(event) {
+            event.preventDefault();
+            const iconInput = document.getElementById('new-cat-icon');
+            const nameInput = document.getElementById('new-cat-name');
+            const icon = iconInput.value.trim() || '🏷️';
+            const name = nameInput.value.trim();
+
+            if (!name) return;
+            if (categories.some(c => c.name === name)) {
+                showToast('這個分類名稱已經存在囉', 'error');
+                return;
+            }
+
+            const badgeClass = COLOR_PALETTE[categories.length % COLOR_PALETTE.length];
+            categories.push({ name, icon, badgeClass });
+            saveCategoriesToStorage();
+
+            nameInput.value = '';
+            iconInput.value = '🏷️';
+            renderCategoryManagerList();
+            showToast(`已新增分類「${name}」`);
+        }
+
+        function updateCategoryField(index, field, newValue) {
+            const trimmed = newValue.trim();
+            if (!trimmed) {
+                renderCategoryManagerList();
+                return;
+            }
+
+            if (field === 'icon') {
+                categories[index].icon = trimmed;
+                saveCategoriesToStorage();
+                showToast('已更新分類圖示');
+            } else if (field === 'name') {
+                const oldName = categories[index].name;
+                if (oldName === trimmed) return;
+                if (categories.some((c, i) => i !== index && c.name === trimmed)) {
+                    showToast('分類名稱重複', 'error');
+                    renderCategoryManagerList();
+                    return;
+                }
+                categories[index].name = trimmed;
+                // 同步更新現有商品中屬於該分類的名稱
+                items.forEach(item => {
+                    if (item.category === oldName) {
+                        item.category = trimmed;
+                    }
+                });
+                if (currentCategoryFilter === oldName) {
+                    currentCategoryFilter = trimmed;
+                }
+                saveCategoriesToStorage();
+                saveItemsToStorage();
+                showToast(`已將分類更名為「${trimmed}」`);
+            }
+        }
+
+        function deleteCategory(index) {
+            if (categories.length <= 1) {
+                showToast('至少需要保留一個分類', 'error');
+                return;
+            }
+            const removed = categories.splice(index, 1)[0];
+            saveCategoriesToStorage();
+            renderCategoryManagerList();
+            showToast(`已刪除分類「${removed.name}」`);
+        }
+
+        function resetDefaultCategories() {
+            categories = JSON.parse(JSON.stringify(DEFAULT_CATEGORIES));
+            saveCategoriesToStorage();
+            renderCategoryManagerList();
+            showToast('已恢復為預設分類');
+        }
+
+        function promptConfirmAction(actionType) {
+            closeSettingsModal();
+            pendingConfirmAction = actionType;
+
+            const titleEl = document.getElementById('confirm-title');
+            const descEl = document.getElementById('confirm-desc');
+            const yesBtn = document.getElementById('confirm-yes-btn');
+
+            if (actionType === 'uncheckAll') {
+                titleEl.textContent = '清除所有已買勾選？';
+                descEl.textContent = '所有商品都會變回「未買」狀態，方便你下次出國重複使用。';
+                yesBtn.className = 'py-2.5 bg-amber-600 hover:bg-amber-500 text-white text-xs font-semibold rounded-xl transition';
+            } else if (actionType === 'deleteBought') {
+                titleEl.textContent = '刪除所有已買項目？';
+                descEl.textContent = '已勾選購買的商品將被移除，僅保留未買項目。';
+                yesBtn.className = 'py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold rounded-xl transition';
+            } else if (actionType === 'clearAll') {
+                titleEl.textContent = '確定要清空整份清單？';
+                descEl.textContent = '所有待買紀錄與圖片都將被永久刪除，無法復原！';
+                yesBtn.className = 'py-2.5 bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold rounded-xl transition';
+            }
+
+            yesBtn.onclick = executeConfirmedAction;
+            document.getElementById('confirm-modal').classList.remove('hidden');
+        }
+
+        function closeConfirmModal() {
+            document.getElementById('confirm-modal').classList.add('hidden');
+            pendingConfirmAction = null;
+        }
+
+        function executeConfirmedAction() {
+            if (pendingConfirmAction === 'uncheckAll') {
+                items.forEach(i => i.purchased = false);
+                showToast('已重置所有勾選狀態');
+            } else if (pendingConfirmAction === 'deleteBought') {
+                items = items.filter(i => !i.purchased);
+                showToast('已清除所有已買項目');
+            } else if (pendingConfirmAction === 'clearAll') {
+                items = [];
+                showToast('清單已全部清空');
+            }
+
+            saveItemsToStorage();
+            renderAll();
+            closeConfirmModal();
+        }
+
+        // ==================== 工具函式 ====================
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            const icon = document.getElementById('toast-icon');
+            const msg = document.getElementById('toast-msg');
+
+            msg.textContent = message;
+            icon.className = type === 'error' 
+                ? 'fa-solid fa-circle-exclamation text-rose-400' 
+                : 'fa-solid fa-circle-check text-emerald-400';
+
+            toast.classList.remove('opacity-0');
+            clearTimeout(window.toastTimer);
+            window.toastTimer = setTimeout(() => {
+                toast.classList.add('opacity-0');
+            }, 2400);
+        }
+
+        function escapeHTML(str) {
+            if (!str) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+    </script>
+</body>
+</html>
