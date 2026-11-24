@@ -288,6 +288,21 @@
                     <label class="block text-xs font-medium text-slate-300 mb-1.5">備註 (色號、規格、退稅門檻等)</label>
                     <textarea id="item-note" rows="2" placeholder="例如：要買藍色包裝的、超過 5500 日圓可退稅..." 
                         class="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-xl px-3.5 py-2 focus:outline-none focus:border-indigo-500"></textarea>
+                </div>
+
+                <!-- 底部送出與取消按鈕 -->
+                <div class="pt-3 border-t border-slate-800 flex items-center gap-2.5 sticky bottom-0 bg-slate-900 pb-1">
+                    <button type="button" onclick="closeItemModal()" class="flex-1 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-medium rounded-xl transition">
+                        取消
+                    </button>
+                    <button type="submit" class="flex-[2] py-3 bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white text-sm font-semibold rounded-xl shadow-lg shadow-indigo-600/25 transition active:scale-95">
+                        <i class="fa-solid fa-check mr-1.5"></i>確認儲存
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <!-- ==================== 圖片放大檢視 Modal (支援多張切換) ==================== -->
     <div id="lightbox-modal" onclick="closeLightbox(event)" class="fixed inset-0 z-50 hidden bg-black/95 backdrop-blur-md flex flex-col items-center justify-center p-4">
         <div class="relative max-w-lg w-full flex flex-col items-center" onclick="event.stopPropagation()">
