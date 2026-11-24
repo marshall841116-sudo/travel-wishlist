@@ -262,25 +262,25 @@
                 </div>
 
                 <!-- 參考圖片 (上傳縮圖 或 貼上圖片網址) -->
+                <!-- 參考圖片 (支援多張高畫質原圖) -->
                 <div>
                     <label class="block text-xs font-medium text-slate-300 mb-1.5">
-                        參考圖片 <span class="text-slate-500 font-normal">(自動壓縮省空間，方便比對包裝)</span>
+                        參考圖片 <span class="text-slate-500 font-normal">(支援多張原畫質照片，包裝/色號一次存)</span>
                     </label>
                     <div class="flex items-center gap-3">
                         <label class="flex-1 flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-750 border border-dashed border-slate-600 rounded-xl py-2.5 px-3 cursor-pointer text-xs text-slate-300 transition">
-                            <i class="fa-solid fa-camera text-indigo-400"></i>
-                            <span>選擇相簿截圖 / 拍照</span>
-                            <input type="file" id="item-image-file" accept="image/*" onchange="handleImageUpload(event)" class="hidden">
+                            <i class="fa-solid fa-images text-indigo-400"></i>
+                            <span>選擇相簿照片 / 拍照 (可多選)</span>
+                            <input type="file" id="item-image-file" accept="image/*" multiple onchange="handleImageUpload(event)" class="hidden">
                         </label>
-                        <button type="button" id="remove-img-btn" onclick="clearImagePreview()" class="hidden px-3 py-2.5 bg-rose-950/60 text-rose-400 border border-rose-800/50 rounded-xl text-xs">
-                            移除圖片
+                        <button type="button" id="remove-all-imgs-btn" onclick="clearImagePreview()" class="hidden px-3 py-2.5 bg-rose-950/60 text-rose-400 border border-rose-800/50 rounded-xl text-xs whitespace-nowrap">
+                            全部清除
                         </button>
                     </div>
-                    <!-- 圖片預覽區 -->
-                    <div id="image-preview-box" class="hidden mt-2.5 relative w-24 h-24 rounded-xl overflow-hidden border border-slate-700 bg-slate-800">
-                        <img id="image-preview" src="" alt="預覽圖" class="w-full h-full object-cover">
+                    <!-- 多張圖片預覽區 -->
+                    <div id="image-preview-list" class="hidden mt-2.5 grid grid-cols-4 gap-2">
+                        <!-- JS 動態生成縮圖與單張刪除鈕 -->
                     </div>
-                    <input type="hidden" id="item-image-data">
                 </div>
 
                 <!-- 備註 -->
@@ -288,25 +288,25 @@
                     <label class="block text-xs font-medium text-slate-300 mb-1.5">備註 (色號、規格、退稅門檻等)</label>
                     <textarea id="item-note" rows="2" placeholder="例如：要買藍色包裝的、超過 5500 日圓可退稅..." 
                         class="w-full bg-slate-800 border border-slate-700 text-white text-sm rounded-xl px-3.5 py-2 focus:outline-none focus:border-indigo-500"></textarea>
-                </div>
-
-                <!-- 儲存按鈕 -->
-                <div class="pt-2">
-                    <button type="submit" class="w-full py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold rounded-xl shadow-lg shadow-indigo-600/20 transition active:scale-98">
-                        儲存項目
-                    </button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- ==================== 圖片放大檢視 Modal ==================== -->
-    <div id="lightbox-modal" onclick="closeLightbox()" class="fixed inset-0 z-50 hidden bg-black/90 backdrop-blur-md flex items-center justify-center p-4">
-        <div class="relative max-w-lg w-full">
-            <button onclick="closeLightbox()" class="absolute -top-10 right-0 text-white/80 hover:text-white text-sm flex items-center gap-1">
-                <i class="fa-solid fa-xmark text-lg"></i> 關閉
-            </button>
-            <img id="lightbox-img" src="" alt="放大檢視" class="w-full max-h-[80vh] object-contain rounded-2xl border border-slate-800">
+    <!-- ==================== 圖片放大檢視 Modal (支援多張切換) ==================== -->
+    <div id="lightbox-modal" onclick="closeLightbox(event)" class="fixed inset-0 z-50 hidden bg-black/95 backdrop-blur-md flex flex-col items-center justify-center p-4">
+        <div class="relative max-w-lg w-full flex flex-col items-center" onclick="event.stopPropagation()">
+            <div class="w-full flex items-center justify-between mb-3 text-white/90 text-xs">
+                <span id="lightbox-counter" class="px-2.5 py-1 rounded-full bg-slate-800/90 border border-slate-700 font-medium">1 / 1</span>
+                <button onclick="closeLightbox()" class="px-3 py-1.5 rounded-full bg-slate-800/90 hover:bg-slate-700 text-white flex items-center gap-1.5 transition">
+                    <i class="fa-solid fa-xmark text-sm"></i> 關閉
+                </button>
+            </div>
+            
+            <div class="relative w-full flex items-center justify-center">
+                <button id="lightbox-prev" onclick="navigateLightbox(-1)" class="hidden absolute left-2 z-10 w-10 h-10 rounded-full bg-slate-900/80 hover:bg-slate-800 border border-slate-700 text-white flex items-center justify-center shadow-lg transition active:scale-90">
+                    <i class="fa-solid fa-chevron-left"></i>
+                </button>
+                <img id="lightbox-img" src="" alt="放大檢視" class="w-full max-h-[75vh] object-contain rounded-2xl border border-slate-800 bg-slate-950">
+                <button id="lightbox-next" onclick="navigateLightbox(1)" class="hidden absolute right-2 z-10 w-10 h-10 rounded-full bg-slate-900/80 hover:bg-slate-800 border border-slate-700 text-white flex items-center justify-center shadow-lg transition active:scale-90">
+                    <i class="fa-solid fa-chevron-right"></i>
+                </button>
+            </div>
         </div>
     </div>
 
@@ -491,43 +491,46 @@
     <script>
         // ==================== 常數與設定 ====================
         const STORAGE_KEY = 'travel_wishlist_items_v1';
+        const DB_NAME = 'TravelWishlistDB';
+        const DB_STORE = 'itemsStore';
         const CATEGORIES_STORAGE_KEY = 'travel_wishlist_categories_v1';
         const CUSTOM_ICON_STORAGE_KEY = 'travel_wishlist_custom_icon_v1';
         const DEFAULT_APP_ICON = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0%25' stop-color='%236366f1'/%3E%3Cstop offset='100%25' stop-color='%239333ea'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='180' height='180' rx='40' fill='url(%23g)'/%3E%3Ctext x='90' y='112' text-anchor='middle' font-size='78'%3E%F0%9F%9B%8D%EF%B8%8F%3C/text%3E%3C/svg%3E";
 
-        const COLOR_PALETTE = [
-            'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
-            'bg-amber-500/15 text-amber-300 border-amber-500/30',
-            'bg-purple-500/15 text-purple-300 border-purple-500/30',
-            'bg-sky-500/15 text-sky-300 border-sky-500/30',
-            'bg-teal-500/15 text-teal-300 border-teal-500/30',
-            'bg-rose-500/15 text-rose-300 border-rose-500/30',
-            'bg-indigo-500/15 text-indigo-300 border-indigo-500/30',
-            'bg-orange-500/15 text-orange-300 border-orange-500/30'
+        const DEFAULT_CATEGORIES = [
+            { name: '藥妝保養', icon: '💄', badgeClass: 'bg-pink-500/20 text-pink-300 border-pink-500/30' },
+            { name: '零食伴手禮', icon: '🍪', badgeClass: 'bg-amber-500/20 text-amber-300 border-amber-500/30' },
+            { name: '服飾精品', icon: '👕', badgeClass: 'bg-purple-500/20 text-purple-300 border-purple-500/30' },
+            { name: '生活雜貨', icon: '🏠', badgeClass: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30' },
+            { name: '3C家電', icon: '🎧', badgeClass: 'bg-sky-500/20 text-sky-300 border-sky-500/30' },
+            { name: '其他', icon: '📦', badgeClass: 'bg-slate-500/20 text-slate-300 border-slate-500/30' }
         ];
 
-        const DEFAULT_CATEGORIES = [
-            { name: '藥妝保養', icon: '💊', badgeClass: COLOR_PALETTE[0] },
-            { name: '零食伴手禮', icon: '🍪', badgeClass: COLOR_PALETTE[1] },
-            { name: '服飾精品', icon: '👕', badgeClass: COLOR_PALETTE[2] },
-            { name: '3C電器', icon: '🔌', badgeClass: COLOR_PALETTE[3] },
-            { name: '生活雜貨', icon: '🏠', badgeClass: COLOR_PALETTE[4] },
-            { name: '其他', icon: '📦', badgeClass: 'bg-slate-500/20 text-slate-300 border-slate-500/30' }
+        const COLOR_PALETTE = [
+            'bg-pink-500/20 text-pink-300 border-pink-500/30',
+            'bg-amber-500/20 text-amber-300 border-amber-500/30',
+            'bg-purple-500/20 text-purple-300 border-purple-500/30',
+            'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
+            'bg-sky-500/20 text-sky-300 border-sky-500/30',
+            'bg-indigo-500/20 text-indigo-300 border-indigo-500/30',
+            'bg-rose-500/20 text-rose-300 border-rose-500/30',
+            'bg-teal-500/20 text-teal-300 border-teal-500/30'
         ];
 
         let categories = [];
 
+        // 內建範例資料（初次開啟時提供參考，可一鍵清除）
         const SAMPLE_ITEMS = [
             {
                 id: 'sample-1',
-                name: '大正製藥 百保能黃金A微粒 (44包)',
+                name: '大正百保能黃金A微粒 (感冒藥)',
                 category: '藥妝保養',
                 url: 'https://www.threads.net/',
                 store: '松本清 / 大國藥妝',
                 isProxy: true,
                 proxyName: '老媽',
                 note: '要買微粒粉狀的，比錠狀有效，記得比價',
-                image: '',
+                images: [],
                 purchased: false,
                 isSample: true,
                 createdAt: Date.now() - 300000
@@ -541,7 +544,7 @@
                 isProxy: false,
                 proxyName: '',
                 note: '8入或12入裝皆可，早上容易賣完要早點去排',
-                image: '',
+                images: [],
                 purchased: false,
                 isSample: true,
                 createdAt: Date.now() - 200000
@@ -555,7 +558,7 @@
                 isProxy: false,
                 proxyName: '',
                 note: '社群爆紅助眠噴霧/精油，看到有貨直接拿',
-                image: '',
+                images: [],
                 purchased: true,
                 isSample: true,
                 createdAt: Date.now() - 100000
@@ -564,16 +567,73 @@
 
         // ==================== 狀態管理 ====================
         let items = [];
+        let currentEditingImages = [];
+        let lightboxImages = [];
+        let lightboxIndex = 0;
         let currentStatusFilter = 'all';
         let currentCategoryFilter = 'all';
         let searchQuery = '';
         let pendingConfirmAction = null;
 
+        // ==================== IndexedDB 大容量儲存引擎 ====================
+        function openDatabase() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open(DB_NAME, 1);
+                request.onupgradeneeded = (e) => {
+                    const db = e.target.result;
+                    if (!db.objectStoreNames.contains(DB_STORE)) {
+                        db.createObjectStore(DB_STORE);
+                    }
+                };
+                request.onsuccess = () => resolve(request.result);
+                request.onerror = () => reject(request.error);
+            });
+        }
+
+        async function readItemsFromDB() {
+            try {
+                const db = await openDatabase();
+                return await new Promise((resolve, reject) => {
+                    const tx = db.transaction(DB_STORE, 'readonly');
+                    const store = tx.objectStore(DB_STORE);
+                    const req = store.get('wishlist');
+                    req.onsuccess = () => resolve(req.result);
+                    req.onerror = () => reject(req.error);
+                });
+            } catch (e) {
+                console.error('IndexedDB 讀取失敗:', e);
+                return null;
+            }
+        }
+
+        async function writeItemsToDB(data) {
+            try {
+                const db = await openDatabase();
+                return await new Promise((resolve, reject) => {
+                    const tx = db.transaction(DB_STORE, 'readwrite');
+                    const store = tx.objectStore(DB_STORE);
+                    const req = store.put(data, 'wishlist');
+                    req.onsuccess = () => resolve(true);
+                    req.onerror = () => reject(req.error);
+                });
+            } catch (e) {
+                console.error('IndexedDB 寫入失敗:', e);
+                return false;
+            }
+        }
+
+        function normalizeItemImages(item) {
+            if (Array.isArray(item.images)) return item;
+            const imgs = item.image ? [item.image] : [];
+            const { image, ...rest } = item;
+            return { ...rest, images: imgs };
+        }
+
         // ==================== 初始化 ====================
-        document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('DOMContentLoaded', async () => {
             loadCustomAppIcon();
             loadCategories();
-            loadItems();
+            await loadItems();
             renderCategoryDropdown();
             initModalPills();
             bindEvents();
@@ -671,26 +731,33 @@
             return { name: catName || '未分類', icon: '🏷️', badgeClass: 'bg-slate-500/20 text-slate-300 border-slate-500/30' };
         }
 
-        function loadItems() {
+        async function loadItems() {
+            const dbData = await readItemsFromDB();
+            if (Array.isArray(dbData)) {
+                items = dbData.map(normalizeItemImages);
+                return;
+            }
+
+            // 相容舊版 localStorage 資料並自動遷移至 IndexedDB
             try {
                 const raw = localStorage.getItem(STORAGE_KEY);
                 if (raw === null) {
                     items = [...SAMPLE_ITEMS];
-                    saveItemsToStorage();
                 } else {
-                    items = JSON.parse(raw) || [];
+                    const parsed = JSON.parse(raw) || [];
+                    items = parsed.map(normalizeItemImages);
                 }
+                await saveItemsToStorage();
             } catch (e) {
-                console.error('讀取 localStorage 失敗:', e);
+                console.error('讀取資料失敗:', e);
                 items = [];
             }
         }
 
-        function saveItemsToStorage() {
-            try {
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
-            } catch (e) {
-                showToast('儲存空間已滿，建議刪除部分圖片或備份資料', 'error');
+        async function saveItemsToStorage() {
+            const ok = await writeItemsToDB(items);
+            if (!ok) {
+                showToast('儲存照片時發生錯誤，請檢查瀏覽器空間', 'error');
             }
         }
 
@@ -818,6 +885,7 @@
 
         function createItemCardHTML(item) {
             const catMeta = getCategoryMeta(item.category);
+            const itemImages = Array.isArray(item.images) ? item.images : (item.image ? [item.image] : []);
             
             const checkedStyle = item.purchased 
                 ? 'bg-slate-900/50 border-slate-800/70 opacity-60' 
@@ -868,6 +936,26 @@
                             </p>
                         ` : ''}
 
+                        <!-- 多張參考圖片縮圖列 -->
+                        ${itemImages.length > 0 ? `
+                            <div class="flex items-center gap-2 mt-2.5 overflow-x-auto no-scrollbar pb-0.5">
+                                ${itemImages.map((imgSrc, idx) => `
+                                    <button type="button" onclick="openItemLightbox('${item.id}', ${idx})" 
+                                        class="w-16 h-16 rounded-xl overflow-hidden border border-slate-700 shrink-0 bg-slate-900 relative group">
+                                        <img src="${imgSrc}" alt="商品參考圖 ${idx + 1}" class="w-full h-full object-cover">
+                                        <div class="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 flex items-center justify-center transition">
+                                            <i class="fa-solid fa-magnifying-glass-plus text-white text-xs"></i>
+                                        </div>
+                                        ${itemImages.length > 1 ? `
+                                            <span class="absolute bottom-1 right-1 px-1.5 py-0.2 bg-black/75 text-white text-[9px] rounded-md font-medium">
+                                                ${idx + 1}/${itemImages.length}
+                                            </span>
+                                        ` : ''}
+                                    </button>
+                                `).join('')}
+                            </div>
+                        ` : ''}
+
                         <!-- 底部快速操作列：開啟原貼文 / 編輯 / 刪除 -->
                         <div class="flex items-center justify-between mt-3 pt-2.5 border-t border-slate-700/50">
                             <div>
@@ -891,16 +979,6 @@
                             </div>
                         </div>
                     </div>
-
-                    <!-- 右側參考縮圖 (若有上傳) -->
-                    ${item.image ? `
-                        <button onclick="openLightbox('${item.image}')" class="w-16 h-16 rounded-xl overflow-hidden border border-slate-700 shrink-0 bg-slate-900 relative group">
-                            <img src="${item.image}" alt="商品參考圖" class="w-full h-full object-cover">
-                            <div class="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 flex items-center justify-center transition">
-                                <i class="fa-solid fa-magnifying-glass-plus text-white text-xs"></i>
-                            </div>
-                        </button>
-                    ` : ''}
                 </div>
             </div>
             `;
@@ -973,8 +1051,10 @@
                 toggleProxyInput();
                 document.getElementById('item-note').value = item.note || '';
 
-                if (item.image) {
-                    setImagePreview(item.image);
+                const existingImages = Array.isArray(item.images) ? item.images : (item.image ? [item.image] : []);
+                if (existingImages.length > 0) {
+                    currentEditingImages = [...existingImages];
+                    renderImagePreviews();
                 }
             } else {
                 document.getElementById('modal-title').textContent = '新增待買商品';
@@ -991,63 +1071,62 @@
             document.getElementById('item-modal').classList.add('hidden');
         }
 
-        // 圖片上傳並透過 Canvas 壓縮至適合 localStorage 的大小
+        // 多張圖片上傳（保留原圖高畫質，不進行壓縮）
         function handleImageUpload(event) {
-            const file = event.target.files[0];
-            if (!file) return;
+            const files = Array.from(event.target.files || []);
+            if (files.length === 0) return;
 
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                const img = new Image();
-                img.onload = function() {
-                    const canvas = document.createElement('canvas');
-                    const MAX_WIDTH = 400;
-                    const MAX_HEIGHT = 400;
-                    let width = img.width;
-                    let height = img.height;
-
-                    if (width > height) {
-                        if (width > MAX_WIDTH) {
-                            height *= MAX_WIDTH / width;
-                            width = MAX_WIDTH;
-                        }
-                    } else {
-                        if (height > MAX_HEIGHT) {
-                            width *= MAX_HEIGHT / height;
-                            height = MAX_HEIGHT;
-                        }
+            let loadedCount = 0;
+            files.forEach(file => {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    currentEditingImages.push(e.target.result);
+                    loadedCount++;
+                    if (loadedCount === files.length) {
+                        renderImagePreviews();
                     }
-
-                    canvas.width = width;
-                    canvas.height = height;
-                    const ctx = canvas.getContext('2d');
-                    ctx.drawImage(img, 0, 0, width, height);
-
-                    // 壓縮為 JPEG 0.7 品質
-                    const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.7);
-                    setImagePreview(compressedDataUrl);
                 };
-                img.src = e.target.result;
-            };
-            reader.readAsDataURL(file);
+                reader.readAsDataURL(file);
+            });
+            event.target.value = '';
         }
 
-        function setImagePreview(dataUrl) {
-            document.getElementById('item-image-data').value = dataUrl;
-            document.getElementById('image-preview').src = dataUrl;
-            document.getElementById('image-preview-box').classList.remove('hidden');
-            document.getElementById('remove-img-btn').classList.remove('hidden');
+        function renderImagePreviews() {
+            const listEl = document.getElementById('image-preview-list');
+            const clearAllBtn = document.getElementById('remove-all-imgs-btn');
+
+            if (currentEditingImages.length === 0) {
+                listEl.innerHTML = '';
+                listEl.classList.add('hidden');
+                clearAllBtn.classList.add('hidden');
+                return;
+            }
+
+            listEl.classList.remove('hidden');
+            clearAllBtn.classList.remove('hidden');
+            listEl.innerHTML = currentEditingImages.map((src, idx) => `
+                <div class="relative aspect-square rounded-xl overflow-hidden border border-slate-700 bg-slate-800 group">
+                    <img src="${src}" alt="預覽圖 ${idx + 1}" class="w-full h-full object-cover">
+                    <button type="button" onclick="removeSinglePreviewImage(${idx})" 
+                        class="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/75 hover:bg-rose-600 text-white flex items-center justify-center text-[10px] transition" title="移除這張照片">
+                        <i class="fa-solid fa-xmark"></i>
+                    </button>
+                </div>
+            `).join('');
+        }
+
+        function removeSinglePreviewImage(index) {
+            currentEditingImages.splice(index, 1);
+            renderImagePreviews();
         }
 
         function clearImagePreview() {
-            document.getElementById('item-image-data').value = '';
+            currentEditingImages = [];
             document.getElementById('item-image-file').value = '';
-            document.getElementById('image-preview').src = '';
-            document.getElementById('image-preview-box').classList.add('hidden');
-            document.getElementById('remove-img-btn').classList.add('hidden');
+            renderImagePreviews();
         }
 
-        function saveItem(event) {
+        async function saveItem(event) {
             event.preventDefault();
             const id = document.getElementById('item-id').value;
             const name = document.getElementById('item-name').value.trim();
@@ -1061,7 +1140,7 @@
                 store: document.getElementById('item-store').value.trim(),
                 isProxy,
                 proxyName: isProxy ? document.getElementById('item-proxy-name').value.trim() : '',
-                image: document.getElementById('item-image-data').value,
+                images: [...currentEditingImages],
                 note: document.getElementById('item-note').value.trim(),
                 isSample: false
             };
@@ -1070,6 +1149,7 @@
                 const index = items.findIndex(i => i.id === id);
                 if (index !== -1) {
                     items[index] = { ...items[index], ...itemData };
+                    delete items[index].image;
                     showToast('已更新商品資訊');
                 }
             } else {
@@ -1083,45 +1163,73 @@
                 showToast('已加入待買清單');
             }
 
-            saveItemsToStorage();
+            await saveItemsToStorage();
             closeItemModal();
             renderAll();
         }
 
         // ==================== 項目快速操作 ====================
-        function togglePurchased(id) {
+        async function togglePurchased(id) {
             const item = items.find(i => i.id === id);
             if (!item) return;
             item.purchased = !item.purchased;
-            saveItemsToStorage();
+            await saveItemsToStorage();
             renderAll();
             if (item.purchased) {
                 showToast(`已勾選：${item.name}`);
             }
         }
 
-        function deleteItem(id) {
+        async function deleteItem(id) {
             items = items.filter(i => i.id !== id);
-            saveItemsToStorage();
+            await saveItemsToStorage();
             renderAll();
             showToast('已刪除該項目');
         }
 
-        function clearSampleData() {
+        async function clearSampleData() {
             items = items.filter(i => !i.isSample);
-            saveItemsToStorage();
+            await saveItemsToStorage();
             renderAll();
             showToast('已清除範例資料');
         }
 
-        // ==================== 圖片燈箱 ====================
-        function openLightbox(src) {
-            document.getElementById('lightbox-img').src = src;
+        // ==================== 圖片燈箱 (支援多圖切換) ====================
+        function openItemLightbox(itemId, startIndex = 0) {
+            const item = items.find(i => i.id === itemId);
+            if (!item) return;
+            const imgs = Array.isArray(item.images) ? item.images : (item.image ? [item.image] : []);
+            if (imgs.length === 0) return;
+
+            lightboxImages = imgs;
+            lightboxIndex = startIndex;
+            updateLightboxView();
             document.getElementById('lightbox-modal').classList.remove('hidden');
+        }
+
+        function updateLightboxView() {
+            const imgEl = document.getElementById('lightbox-img');
+            const counterEl = document.getElementById('lightbox-counter');
+            const prevBtn = document.getElementById('lightbox-prev');
+            const nextBtn = document.getElementById('lightbox-next');
+
+            imgEl.src = lightboxImages[lightboxIndex];
+            counterEl.textContent = `${lightboxIndex + 1} / ${lightboxImages.length}`;
+
+            const hasMultiple = lightboxImages.length > 1;
+            prevBtn.classList.toggle('hidden', !hasMultiple);
+            nextBtn.classList.toggle('hidden', !hasMultiple);
+        }
+
+        function navigateLightbox(step) {
+            if (lightboxImages.length <= 1) return;
+            lightboxIndex = (lightboxIndex + step + lightboxImages.length) % lightboxImages.length;
+            updateLightboxView();
         }
 
         function closeLightbox() {
             document.getElementById('lightbox-modal').classList.add('hidden');
+            lightboxImages = [];
         }
 
         // ==================== 備份與還原功能 ====================
@@ -1169,15 +1277,15 @@
             reader.readAsText(file);
         }
 
-        function restoreFromTextarea() {
+        async function restoreFromTextarea() {
             try {
                 const raw = document.getElementById('backup-textarea').value.trim();
                 const parsed = JSON.parse(raw);
                 if (!Array.isArray(parsed)) {
                     throw new Error('格式不正確');
                 }
-                items = parsed;
-                saveItemsToStorage();
+                items = parsed.map(normalizeItemImages);
+                await saveItemsToStorage();
                 renderAll();
                 closeBackupModal();
                 showToast(`成功還原 ${items.length} 筆待買資料`);
@@ -1336,7 +1444,7 @@
             pendingConfirmAction = null;
         }
 
-        function executeConfirmedAction() {
+        async function executeConfirmedAction() {
             if (pendingConfirmAction === 'uncheckAll') {
                 items.forEach(i => i.purchased = false);
                 showToast('已重置所有勾選狀態');
@@ -1348,7 +1456,7 @@
                 showToast('清單已全部清空');
             }
 
-            saveItemsToStorage();
+            await saveItemsToStorage();
             renderAll();
             closeConfirmModal();
         }
